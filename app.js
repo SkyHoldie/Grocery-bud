@@ -1,254 +1,106 @@
-// Cek status theme (dark mode)
-window.onload = function () {
-  if (localStorage.getItem("theme") === "dark") {
-    document.body.classList.add("dark-mode");
-  }
+const groceryForm = document.querySelector('.grocery-form');
+const groceryInput = document.getElementById('grocery');
+const groceryList = document.querySelector('.grocery-list');
+const clearBtn = document.querySelector('.clear-btn');
+const itemCount = document.getElementById('item-count');
+const darkModeToggle = document.querySelector('.dark-mode-toggle');
 
-  showGroceryApp();
-};
+let groceries = JSON.parse(localStorage.getItem('groceries')) || [];
 
-// Fungsi untuk menampilkan aplikasi grocery
-function showGroceryApp() {
-  document.getElementById("login-container").style.display = "none";
-  document.getElementById("grocery-form").style.display = "block";
-}
+// Load groceries from localStorage
+window.addEventListener('DOMContentLoaded', function () {
+  loadGroceries();
+  checkDarkMode();
+});
 
-// ****** select items **********
-const form = document.querySelector(".grocery-form");
-const alert = document.querySelector(".alert");
-const grocery = document.getElementById("grocery");
-const submitBtn = document.querySelector(".submit-btn");
-const container = document.querySelector(".grocery-container");
-const list = document.querySelector(".grocery-list");
-const clearBtn = document.querySelector(".clear-btn");
-// edit option
-let editElement;
-let editFlag = false;
-let editID = "";
-
-// ****** event listeners **********
-form.addEventListener("submit", addItem);
-clearBtn.addEventListener("click", clearItems);
-window.addEventListener("DOMContentLoaded", setupItems);
-
-// ****** functions **********
-
-// add item
-function addItem(e) {
+// Form submit handler
+groceryForm.addEventListener('submit', function (e) {
   e.preventDefault();
-  const value = grocery.value;
-
-  // Cek apakah value sudah ada di daftar
-  if (isItemAlreadyInList(value)) {
-    displayAlert("Item already exists in the list", "danger");
-    return;
-  }
-
-  const id = new Date().getTime().toString();
-
-  if (value !== "" && !editFlag) {
-    const element = document.createElement("article");
-    let attr = document.createAttribute("data-id");
-    attr.value = id;
-    element.setAttributeNode(attr);
-    element.classList.add("grocery-item");
-    element.innerHTML = `<p class="title">${value}</p>
-            <div class="btn-container">
-              <!-- edit btn -->
-              <button type="button" class="edit-btn">
-                <i class="fas fa-edit"></i>
-              </button>
-              <!-- delete btn -->
-              <button type="button" class="delete-btn">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          `;
-    // add event listeners to both buttons;
-    const deleteBtn = element.querySelector(".delete-btn");
-    deleteBtn.addEventListener("click", deleteItem);
-    const editBtn = element.querySelector(".edit-btn");
-    editBtn.addEventListener("click", editItem);
-
-    // append child
-    list.appendChild(element);
-    // display alert
-    displayAlert("Item added to the list", "success");
-    // show container
-    container.classList.add("show-container");
-    // set local storage
-    addToLocalStorage(id, value);
-    // set back to default
-    setBackToDefault();
-  } else if (value !== "" && editFlag) {
-    editElement.innerHTML = value;
-    displayAlert("Value changed", "success");
-
-    // edit local storage
-    editLocalStorage(editID, value);
-    setBackToDefault();
+  const groceryItem = groceryInput.value.trim();
+  
+  // Check if the item already exists in the list
+  if (groceryItem && !groceries.some(item => item.name.toLowerCase() === groceryItem.toLowerCase())) {
+    const grocery = {
+      id: new Date().getTime(),
+      name: groceryItem,
+      completed: false
+    };
+    groceries.push(grocery);
+    localStorage.setItem('groceries', JSON.stringify(groceries));
+    groceryInput.value = '';
+    loadGroceries();
+  } else if (!groceryItem) {
+    alert("Please enter an item!");
   } else {
-    displayAlert("Please enter a value", "danger");
+    alert("This item already exists!");
   }
-}
+});
 
-// Cek apakah item sudah ada di daftar
-function isItemAlreadyInList(value) {
-  const items = getLocalStorage();
-  return items.some(item => item.value.toLowerCase() === value.toLowerCase());
-}
+// Load grocery items to the DOM
+function loadGroceries() {
+  groceryList.innerHTML = '';
+  groceries.forEach(item => {
+    const groceryDiv = document.createElement('div');
+    groceryDiv.classList.add('grocery-item');
+    groceryDiv.innerHTML = `
+      <span class="${item.completed ? 'completed' : ''}">${item.name}</span>
+      <button class="edit-btn">✏️</button>
+      <button class="delete-btn">🗑️</button>
+    `;
+    groceryList.appendChild(groceryDiv);
 
-// display alert
-function displayAlert(text, action) {
-  alert.textContent = text;
-  alert.classList.add(`alert-${action}`);
-  // remove alert
-  setTimeout(function () {
-    alert.textContent = "";
-    alert.classList.remove(`alert-${action}`);
-  }, 1000);
-}
-
-// clear items
-function clearItems() {
-  const items = document.querySelectorAll(".grocery-item");
-  if (items.length > 0) {
-    items.forEach(function (item) {
-      list.removeChild(item);
+    const editBtn = groceryDiv.querySelector('.edit-btn');
+    const deleteBtn = groceryDiv.querySelector('.delete-btn');
+    
+    // Edit button functionality
+    editBtn.addEventListener('click', function() {
+      const newItem = prompt('Edit the item:', item.name);
+      if (newItem && !groceries.some(i => i.name.toLowerCase() === newItem.toLowerCase())) {
+        item.name = newItem;
+        localStorage.setItem('groceries', JSON.stringify(groceries));
+        loadGroceries();
+      } else if (!newItem) {
+        alert("Please enter a valid item!");
+      } else {
+        alert("This item already exists!");
+      }
     });
-  }
-  container.classList.remove("show-container");
-  displayAlert("Empty list", "danger");
-  setBackToDefault();
-  localStorage.removeItem("list");
-}
 
-// delete item
-function deleteItem(e) {
-  const element = e.currentTarget.parentElement.parentElement;
-  const id = element.dataset.id;
+    // Delete button functionality
+    deleteBtn.addEventListener('click', function() {
+      groceries = groceries.filter(grocery => grocery.id !== item.id);
+      localStorage.setItem('groceries', JSON.stringify(groceries));
+      loadGroceries();
+    });
 
-  list.removeChild(element);
-
-  if (list.children.length === 0) {
-    container.classList.remove("show-container");
-  }
-  displayAlert("Item removed", "danger");
-
-  setBackToDefault();
-  // remove from local storage
-  removeFromLocalStorage(id);
-}
-
-// edit item
-function editItem(e) {
-  const element = e.currentTarget.parentElement.parentElement;
-  // set edit item
-  editElement = e.currentTarget.parentElement.previousElementSibling;
-  // set form value
-  grocery.value = editElement.innerHTML;
-  editFlag = true;
-  editID = element.dataset.id;
-  //
-  submitBtn.textContent = "Edit";
-}
-
-// set back to defaults
-function setBackToDefault() {
-  grocery.value = "";
-  editFlag = false;
-  editID = "";
-  submitBtn.textContent = "Submit";
-}
-
-// ****** local storage **********
-
-// add to local storage
-function addToLocalStorage(id, value) {
-  const grocery = { id, value };
-  let items = getLocalStorage();
-  items.push(grocery);
-  localStorage.setItem("list", JSON.stringify(items));
-}
-
-function getLocalStorage() {
-  return localStorage.getItem("list")
-    ? JSON.parse(localStorage.getItem("list"))
-    : [];
-}
-
-function removeFromLocalStorage(id) {
-  let items = getLocalStorage();
-
-  items = items.filter(function (item) {
-    return item.id !== id;
+    // Toggle completion
+    groceryDiv.querySelector('span').addEventListener('click', function() {
+      item.completed = !item.completed;
+      localStorage.setItem('groceries', JSON.stringify(groceries));
+      loadGroceries();
+    });
   });
 
-  localStorage.setItem("list", JSON.stringify(items));
+  // Update item count
+  itemCount.textContent = `${groceries.length} items`;
 }
 
-function editLocalStorage(id, value) {
-  let items = getLocalStorage();
+// Clear all items
+clearBtn.addEventListener('click', function () {
+  groceries = [];
+  localStorage.removeItem('groceries');
+  loadGroceries();
+});
 
-  items = items.map(function (item) {
-    if (item.id === id) {
-      item.value = value;
-    }
-    return item;
-  });
-  localStorage.setItem("list", JSON.stringify(items));
-}
-
-// SETUP LOCALSTORAGE.REMOVEITEM('LIST');
-
-// ****** setup items **********
-function setupItems() {
-  let items = getLocalStorage();
-
-  if (items.length > 0) {
-    items.forEach(function (item) {
-      createListItem(item.id, item.value);
-    });
-    container.classList.add("show-container");
-  }
-}
-
-function createListItem(id, value) {
-  const element = document.createElement("article");
-  let attr = document.createAttribute("data-id");
-  attr.value = id;
-  element.setAttributeNode(attr);
-  element.classList.add("grocery-item");
-  element.innerHTML = `<p class="title">${value}</p>
-            <div class="btn-container">
-              <!-- edit btn -->
-              <button type="button" class="edit-btn">
-                <i class="fas fa-edit"></i>
-              </button>
-              <!-- delete btn -->
-              <button type="button" class="delete-btn">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          `;
-  // add event listeners to both buttons;
-  const deleteBtn = element.querySelector(".delete-btn");
-  deleteBtn.addEventListener("click", deleteItem);
-  const editBtn = element.querySelector(".edit-btn");
-  editBtn.addEventListener("click", editItem);
-
-  // append child
-  list.appendChild(element);
-}
-
-// Fungsi untuk toggle dark mode
+// Dark Mode Toggle
 function toggleDarkMode() {
-  document.body.classList.toggle("dark-mode");
+  document.body.classList.toggle('dark-mode');
+  localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+}
 
-  // Menyimpan preferensi dark mode di localStorage
-  if (document.body.classList.contains("dark-mode")) {
-    localStorage.setItem("theme", "dark");
-  } else {
-    localStorage.setItem("theme", "light");
+// Check for saved dark mode preference
+function checkDarkMode() {
+  if (localStorage.getItem('darkMode') === 'true') {
+    document.body.classList.add('dark-mode');
   }
 }
